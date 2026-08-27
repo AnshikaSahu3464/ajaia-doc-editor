@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
 function App() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const editorRef = useRef(null);
 
   // 1. File Upload/Import Handler
   const handleFileUpload = (event) => {
@@ -12,20 +13,25 @@ function App() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const fileText = e.target.result;
-      setContent(fileText); // Editor mein uploaded file ka text populate ho jayega
+      setContent(fileText);
+      if (editorRef.current) {
+        editorRef.current.innerHTML = fileText;
+      }
     };
     reader.readAsText(file);
   };
 
-  // 2. Text Formatting Commands
+  // 2. Text Formatting Commands (ExecCommand)
   const formatText = (command, value = null) => {
     document.execCommand(command, false, value);
+    if (editorRef.current) {
+      setContent(editorRef.current.innerHTML);
+    }
   };
 
   // 3. Save Document Handler
   const handleSave = async () => {
-    const editorDiv = document.getElementById('editor');
-    const htmlContent = editorDiv ? editorDiv.innerHTML : content;
+    const htmlContent = editorRef.current ? editorRef.current.innerHTML : content;
 
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://ajaia-doc-editor-k9mz.vercel.app';
@@ -38,7 +44,7 @@ function App() {
       if (response.ok) {
         alert('Document Saved Successfully!');
       } else {
-        alert('Saved locally! (Backend sync endpoint ready)');
+        alert('Saved locally!');
       }
     } catch (error) {
       console.error('Error saving document:', error);
@@ -82,31 +88,31 @@ function App() {
 
       {/* Formatting Toolbar */}
       <div style={{ marginBottom: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        <button onClick={() => formatText('bold')} style={btnStyle}><b>B</b></button>
-        <button onClick={() => formatText('italic')} style={btnStyle}><i>I</i></button>
-        <button onClick={() => formatText('underline')} style={btnStyle}><u>U</u></button>
-        <button onClick={() => formatText('formatBlock', 'H1')} style={btnStyle}>H1</button>
-        <button onClick={() => formatText('formatBlock', 'H2')} style={btnStyle}>H2</button>
-        <button onClick={() => formatText('insertUnorderedList')} style={btnStyle}>• Bullet List</button>
-        <button onClick={() => formatText('insertOrderedList')} style={btnStyle}>1. Numbered List</button>
+        <button onMouseDown={(e) => { e.preventDefault(); formatText('bold'); }} style={btnStyle}><b>B</b></button>
+        <button onMouseDown={(e) => { e.preventDefault(); formatText('italic'); }} style={btnStyle}><i>I</i></button>
+        <button onMouseDown={(e) => { e.preventDefault(); formatText('underline'); }} style={btnStyle}><u>U</u></button>
+        <button onMouseDown={(e) => { e.preventDefault(); formatText('formatBlock', 'H1'); }} style={btnStyle}>H1</button>
+        <button onMouseDown={(e) => { e.preventDefault(); formatText('formatBlock', 'H2'); }} style={btnStyle}>H2</button>
+        <button onMouseDown={(e) => { e.preventDefault(); formatText('insertUnorderedList'); }} style={btnStyle}>• Bullet List</button>
+        <button onMouseDown={(e) => { e.preventDefault(); formatText('insertOrderedList'); }} style={btnStyle}>1. Numbered List</button>
       </div>
 
       {/* Rich Text Editable Area */}
       <div
-        id="editor"
+        ref={editorRef}
         contentEditable
         suppressContentEditableWarning
         onInput={(e) => setContent(e.currentTarget.innerHTML)}
-        dangerouslySetInnerHTML={{ __html: content }}
         style={{
           minHeight: '300px',
           border: '1px solid #444',
           padding: '15px',
           borderRadius: '6px',
-          backgroundColor: '#fff',
-          color: '#000',
+          backgroundColor: '#ffffff',
+          color: '#000000',
           fontSize: '16px',
-          overflowY: 'auto'
+          overflowY: 'auto',
+          outline: 'none'
         }}
       />
 
