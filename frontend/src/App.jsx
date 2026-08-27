@@ -21,9 +21,11 @@ function App() {
     reader.readAsText(file);
   };
 
-  // 2. Text Formatting Commands (ExecCommand)
+  // 2. Text Formatting Commands (Force Text Color to Black)
   const formatText = (command, value = null) => {
     document.execCommand(command, false, value);
+    // Explicitly force text color back to black after formatting command
+    document.execCommand('foreColor', false, '#000000');
     if (editorRef.current) {
       setContent(editorRef.current.innerHTML);
     }
@@ -112,7 +114,8 @@ function App() {
           color: '#000000',
           fontSize: '16px',
           overflowY: 'auto',
-          outline: 'none'
+          outline: 'none',
+          caretColor: '#000000'
         }}
       />
 
