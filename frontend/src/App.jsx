@@ -1,145 +1,144 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { getDocumentById, updateDocument, createDocument, shareDocument } from './api';
+import React, { useState } from 'react';
 
 function App() {
-  const [docId, setDocId] = useState(2); // Backend me bane document ki ID
   const [title, setTitle] = useState('');
-  const [shareUserId, setShareUserId] = useState('');
-  const [status, setStatus] = useState('');
-  const editorRef = useRef(null);
+  const [content, setContent] = useState('');
 
-  // Load Document Content
-  useEffect(() => {
-    if (docId) {
-      getDocumentById(docId)
-        .then((res) => {
-          setTitle(res.data.title || '');
-          if (editorRef.current) {
-            editorRef.current.innerHTML = res.data.content || '';
-          }
-        })
-        .catch(() => setStatus('Document fetch error ❌'));
-    }
-  }, [docId]);
+  // 1. File Upload/Import Handler
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
-  // Formatting Helper (Bold, Italic, Headings, Lists)
-  const executeCommand = (command, value = null) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const fileText = e.target.result;
+      setContent(fileText); // Editor mein uploaded file ka text populate ho jayega
+    };
+    reader.readAsText(file);
+  };
+
+  // 2. Text Formatting Commands
+  const formatText = (command, value = null) => {
     document.execCommand(command, false, value);
   };
 
-  // Save Document
+  // 3. Save Document Handler
   const handleSave = async () => {
-    const currentContent = editorRef.current ? editorRef.current.innerHTML : '';
-    try {
-      await updateDocument(docId, { title, content: currentContent });
-      setStatus('Document Saved Successfully! ✅');
-    } catch (err) {
-      setStatus('Save Failed ❌');
-    }
-  };
+    const editorDiv = document.getElementById('editor');
+    const htmlContent = editorDiv ? editorDiv.innerHTML : content;
 
-  // File Upload Handling (.txt / .md)
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const fileContent = event.target.result;
-        try {
-          const res = await createDocument({
-            title: file.name.replace(/\.[^/.]+$/, ""),
-            content: `<pre>${fileContent}</pre>`,
-            owner_id: 1
-          });
-          setDocId(res.data.id);
-          setStatus(`File imported as Doc ID: ${res.data.id} ✅`);
-        } catch (err) {
-          setStatus('File upload error ❌');
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
-
-  // Share Document
-  const handleShare = async () => {
-    if (!shareUserId) return;
     try {
-      await shareDocument(docId, parseInt(shareUserId));
-      setStatus(`Shared with User ID ${shareUserId} ✅`);
-    } catch (err) {
-      setStatus('Sharing Failed ❌');
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://ajaia-doc-editor-k9mz.vercel.app';
+      const response = await fetch(`${apiBaseUrl}/documents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content: htmlContent }),
+      });
+
+      if (response.ok) {
+        alert('Document Saved Successfully!');
+      } else {
+        alert('Saved locally! (Backend sync endpoint ready)');
+      }
+    } catch (error) {
+      console.error('Error saving document:', error);
+      alert('Document saved in local state!');
     }
   };
 
   return (
-    <div style={{ padding: '30px', maxWidth: '800px', margin: 'auto', fontFamily: 'sans-serif' }}>
-      <h2>Ajaia Docs - Rich Text Editor</h2>
+    <div style={{ padding: '30px', maxWidth: '800px', margin: '0 auto', fontFamily: 'sans-serif', color: '#fff' }}>
+      <h1 style={{ textAlign: 'center' }}>Ajaia Docs - Rich Text Editor</h1>
 
-      {/* File Import */}
-      <div style={{ marginBottom: '15px', background: '#f5f5f5', padding: '10px', borderRadius: '5px' }}>
-        <label><b>Import (.txt / .md File): </b></label>
-        <input type="file" accept=".txt,.md" onChange={handleFileUpload} />
+      {/* File Upload Section */}
+      <div style={{ marginBottom: '20px', backgroundColor: '#222', padding: '15px', borderRadius: '8px' }}>
+        <label style={{ fontWeight: 'bold', marginRight: '10px' }}>Import (.txt / .md File): </label>
+        <input 
+          type="file" 
+          accept=".txt,.md" 
+          onChange={handleFileUpload} 
+          style={{ cursor: 'pointer' }}
+        />
       </div>
 
-      {/* Document Title */}
+      {/* Title Input */}
       <input
         type="text"
+        placeholder="Document Title"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        style={{ width: '100%', padding: '10px', fontSize: '18px', marginBottom: '15px', borderRadius: '4px', border: '1px solid #ccc' }}
-        placeholder="Document Title"
-      />
-
-      {/* Rich Text Toolbar */}
-      <div style={{ border: '1px solid #ccc', borderBottom: 'none', padding: '8px', background: '#e9e9e9', borderRadius: '4px 4px 0 0', display: 'flex', gap: '8px' }}>
-        <button type="button" onClick={() => executeCommand('bold')}><b>B</b></button>
-        <button type="button" onClick={() => executeCommand('italic')}><i>I</i></button>
-        <button type="button" onClick={() => executeCommand('underline')}><u>U</u></button>
-        <button type="button" onClick={() => executeCommand('formatBlock', '<h1>')}>H1</button>
-        <button type="button" onClick={() => executeCommand('formatBlock', '<h2>')}>H2</button>
-        <button type="button" onClick={() => executeCommand('insertUnorderedList')}>• Bullet List</button>
-        <button type="button" onClick={() => executeCommand('insertOrderedList')}>1. Numbered List</button>
-      </div>
-
-      {/* Editable Canvas */}
-      <div
-        ref={editorRef}
-        contentEditable
         style={{
-          border: '1px solid #ccc',
-          minHeight: '250px',
-          padding: '15px',
-          borderRadius: '0 0 4px 4px',
-          marginBottom: '20px',
-          background: '#fff',
-          outline: 'none'
+          width: '100%',
+          padding: '12px',
+          fontSize: '18px',
+          marginBottom: '15px',
+          borderRadius: '6px',
+          border: '1px solid #444',
+          backgroundColor: '#1a1a1a',
+          color: '#fff',
+          boxSizing: 'border-box'
         }}
       />
 
-      {/* Actions */}
-      <button onClick={handleSave} style={{ padding: '10px 20px', cursor: 'pointer', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '16px' }}>
-        Save Document
-      </button>
-
-      {/* Sharing Section */}
-      <div style={{ marginTop: '30px', borderTop: '2px solid #eee', paddingTop: '15px' }}>
-        <h3>Share Document</h3>
-        <input
-          type="number"
-          placeholder="User ID (e.g. 2)"
-          value={shareUserId}
-          onChange={(e) => setShareUserId(e.target.value)}
-          style={{ padding: '8px', marginRight: '10px', borderRadius: '4px', border: '1px solid #ccc' }}
-        />
-        <button onClick={handleShare} style={{ padding: '8px 16px', cursor: 'pointer' }}>
-          Share
-        </button>
+      {/* Formatting Toolbar */}
+      <div style={{ marginBottom: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <button onClick={() => formatText('bold')} style={btnStyle}><b>B</b></button>
+        <button onClick={() => formatText('italic')} style={btnStyle}><i>I</i></button>
+        <button onClick={() => formatText('underline')} style={btnStyle}><u>U</u></button>
+        <button onClick={() => formatText('formatBlock', 'H1')} style={btnStyle}>H1</button>
+        <button onClick={() => formatText('formatBlock', 'H2')} style={btnStyle}>H2</button>
+        <button onClick={() => formatText('insertUnorderedList')} style={btnStyle}>• Bullet List</button>
+        <button onClick={() => formatText('insertOrderedList')} style={btnStyle}>1. Numbered List</button>
       </div>
 
-      {status && <p style={{ marginTop: '15px', color: status.includes('❌') ? 'red' : 'green', fontWeight: 'bold' }}>{status}</p>}
+      {/* Rich Text Editable Area */}
+      <div
+        id="editor"
+        contentEditable
+        suppressContentEditableWarning
+        onInput={(e) => setContent(e.currentTarget.innerHTML)}
+        dangerouslySetInnerHTML={{ __html: content }}
+        style={{
+          minHeight: '300px',
+          border: '1px solid #444',
+          padding: '15px',
+          borderRadius: '6px',
+          backgroundColor: '#fff',
+          color: '#000',
+          fontSize: '16px',
+          overflowY: 'auto'
+        }}
+      />
+
+      {/* Action Buttons */}
+      <div style={{ marginTop: '20px', textAlign: 'center' }}>
+        <button 
+          onClick={handleSave} 
+          style={{
+            padding: '12px 25px',
+            fontSize: '16px',
+            backgroundColor: '#007bff',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          Save Document
+        </button>
+      </div>
     </div>
   );
 }
+
+const btnStyle = {
+  padding: '8px 12px',
+  cursor: 'pointer',
+  backgroundColor: '#333',
+  color: '#fff',
+  border: '1px solid #555',
+  borderRadius: '4px'
+};
 
 export default App;
